@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gemini — The Infinite Dimension</title>
+<style>
+  @font-face { font-family: Pretendard; font-weight: 900; src: url(assets/fonts/Pretendard-Black.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 600 800; src: url(assets/fonts/Pretendard-Bold.woff2) format('woff2'); }
+  @font-face { font-family: Pretendard; font-weight: 400 500; src: url(assets/fonts/Pretendard-Medium.woff2) format('woff2'); }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 700; src: url(assets/fonts/JetBrainsMono-Bold.woff2) format('woff2'); }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: grid; place-items: center; font-family: Pretendard, sans-serif; }
+  #wrap { position: relative; }
+  canvas { display: block; }
+  #ui { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; cursor: pointer;
+        background: radial-gradient(circle, rgba(60,20,160,.35), rgba(0,0,0,.6)); transition: opacity .4s cubic-bezier(0.25,1,0.5,1); }
+  #ui.hide { opacity: 0; pointer-events: none; }
+  #ui b { font-size: 22px; padding: 14px 28px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px; backdrop-filter: blur(8px); }
+  #ui small { display: block; margin-top: 14px; opacity: .6; text-align: center; font-size: 13px; }
+  #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: linear-gradient(90deg,#6a2bff,#1f6bff,#ffb43c); transform-origin: left; transform: scaleX(0); }
+  .render #ui, .render #bar { display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./node_modules/three/build/three.module.js",
+  "three/addons/": "./node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="stage"></canvas>
+  <div id="ui"><div><b>▶ 재생 (Space)</b><small>클릭: 일시정지 · ←/→: 0.5초 이동</small></div></div>
+  <div id="bar"></div>
+</div>
+<audio id="audio" src="out/audio.m4a" preload="auto"></audio>
+<script type="module">
+  if (new URLSearchParams(location.search).has('render')) document.documentElement.classList.add('render');
+  // Fonts must be ready before keyword textures are drawn and sampled into particles.
+  await Promise.all(['900 100px Pretendard', '800 100px Pretendard', '500 100px Pretendard', '700 25px "JetBrains Mono"']
+    .map((f) => document.fonts.load(f)));
+  await import('./src/main.js');
+</script>
+</body>
+</html>

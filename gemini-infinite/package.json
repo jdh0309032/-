@@ -1,0 +1,14 @@
+{
+  "name": "gemini-infinite-dimension",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "audio": "node scripts/audio.mjs",
+    "render": "node scripts/render.mjs",
+    "build": "node scripts/audio.mjs && node scripts/render.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0"
+  }
+}
