@@ -282,6 +282,7 @@ const CUES = [
   [T.burst - 0.12, 'transition/fs-683096-woosh.ogg', 0.7],
   [T.burst, 'impact/fs-177242-cinematic-impact.ogg', 0.85],
   ...TL.KEYWORDS.map((k) => [k.shatter - 0.05, 'transition/fs-786514-swoosh-v2.ogg', 0.45]),
+  ...TL.KEYWORDS.map((k) => [k.appear, 'typing/fs-416777-digital-typing-wav.ogg', 0.35, 0.3]), // typed into the prompt bar
   [T.drop - 2.46, 'riser/fs-685256-riser-sound-effect-short-wav.ogg', 0.45],
   [T.drop, 'impact/fs-222517-dramatic-hit.ogg', 0.8],
   [T.drop, 'transition/fs-856168-cyberpunk-glitch-hologram-tran.ogg', 0.35],
@@ -291,10 +292,11 @@ const CUES = [
 
 const inputs = ['-i', scoreFile];
 const filters = [];
-CUES.forEach(([t, f, v], i) => {
+CUES.forEach(([t, f, v, dur], i) => {
   inputs.push('-i', path.join(SFX, f));
   const ms = Math.max(0, Math.round(t * 1000));
-  filters.push(`[${i + 1}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=${v},adelay=${ms}|${ms}[s${i}]`);
+  const trim = dur ? `atrim=0:${dur},afade=t=out:st=${dur - 0.05}:d=0.05,` : '';
+  filters.push(`[${i + 1}:a]aformat=sample_rates=48000:channel_layouts=stereo,${trim}volume=${v},adelay=${ms}|${ms}[s${i}]`);
 });
 const mixIn = ['[0:a]', ...CUES.map((_, i) => `[s${i}]`)].join('');
 filters.push(`${mixIn}amix=inputs=${CUES.length + 1}:normalize=0:duration=first,atrim=0:${TL.DURATION},` +

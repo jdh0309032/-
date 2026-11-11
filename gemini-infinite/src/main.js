@@ -67,8 +67,10 @@ composer.addPass(finalPass);
 // ---------------------------------------------------------------- helpers
 const rnd = TL.mulberry32(20261111);
 const COL = {
-  violet: new THREE.Color(0.42, 0.12, 1.0), blue: new THREE.Color(0.08, 0.42, 1.0),
-  gold: new THREE.Color(1.0, 0.7, 0.18), cyan: new THREE.Color(0.2, 0.85, 1.0), white: new THREE.Color(1, 1, 1),
+  // Gemini design language: Google's four colours + the blue→purple→pink Gemini gradient
+  blue: new THREE.Color(0x4285f4), red: new THREE.Color(0xea4335), yellow: new THREE.Color(0xfbbc04), green: new THREE.Color(0x34a853),
+  violet: new THREE.Color(0x9b72cb), pink: new THREE.Color(0xd96570), cyan: new THREE.Color(0x8ab4f8), white: new THREE.Color(1, 1, 1),
+  gold: new THREE.Color(0xfbbc04),
 };
 const FONT = 'Pretendard';
 
@@ -90,10 +92,10 @@ const fullVS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMat
 const bgDist = 60;
 const bgH = 2 * bgDist * TAN * 1.25;
 const bgMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 }, uSplit: { value: 0 }, uIntensity: { value: 0 }, uHue: { value: 0 }, uRim: { value: 0 } },
+  uniforms: { uTime: { value: 0 }, uSplit: { value: 0 }, uIntensity: { value: 0 }, uHue: { value: 0 }, uRim: { value: 0 }, uRipple: { value: -1 } },
   vertexShader: fullVS,
   fragmentShader: /* glsl */ `
-    uniform float uTime, uSplit, uIntensity, uHue, uRim;
+    uniform float uTime, uSplit, uIntensity, uHue, uRim, uRipple;
     varying vec2 vUv;
     ${HASH}
     void main(){
@@ -102,7 +104,7 @@ const bgMat = new THREE.ShaderMaterial({
       vec2 q = vec2(fbm(p + vec2(0.0, -t)), fbm(p + vec2(5.2, 1.3) + t * 0.6));
       vec2 r = vec2(fbm(p + 3.5 * q + vec2(1.7, 9.2) - vec2(0.0, t * 1.4)), fbm(p + 3.5 * q + vec2(8.3, 2.8)));
       float f = fbm(p + 3.5 * r);
-      vec3 violet = vec3(0.30, 0.04, 0.85), blue = vec3(0.02, 0.35, 1.0), gold = vec3(1.0, 0.62, 0.12);
+      vec3 violet = vec3(0.28, 0.12, 0.78), blue = vec3(0.06, 0.32, 1.0), gold = vec3(0.92, 0.32, 0.45);
       vec3 col = mix(violet, blue, clamp(f * f * 3.2 + uHue * 0.3, 0.0, 1.0));
       col = mix(col, gold, clamp(length(q) * 1.1 - 0.55 + uHue * 0.2, 0.0, 1.0) * 0.85);
       float ridge = pow(1.0 - abs(sin(f * 16.0 - uTime * 1.5)), 14.0);
@@ -112,7 +114,24 @@ const bgMat = new THREE.ShaderMaterial({
       float edge = abs(vUv.y - 0.5) * 2.0 + 0.05 * sin(vUv.x * 18.0 + uTime * 7.0) + 0.03 * sin(vUv.x * 41.0 - uTime * 11.0);
       float inside = smoothstep(uSplit, uSplit - 0.12, edge);
       float rim = exp(-abs(edge - uSplit) * 26.0) * uRim;
-      col = col * inside * uIntensity + rim * vec3(0.7, 0.55, 1.0) * 0.9;
+      // sharp leading edge, diffuse tail (Gemini gradient rule), tinted blue→purple→pink along x
+      vec3 gem = mix(mix(vec3(0.26, 0.52, 0.96), vec3(0.61, 0.45, 0.8), smoothstep(0.0, 0.6, vUv.x)), vec3(0.85, 0.4, 0.44), smoothstep(0.5, 1.0, vUv.x));
+      float tail = exp(-max(uSplit - edge, 0.0) * 6.0) * step(edge, uSplit) * uRim * 0.5;
+      col = col * inside * uIntensity + (rim * 0.9 + tail) * gem;
+      if (uRipple >= 0.0) {
+        vec2 c = (vUv - 0.5) * vec2(0.5625, 1.0);
+        float d = length(c), a = atan(c.y, c.x);
+        float h = fract(a / 6.28318 + 0.125 + uRipple * 0.3) * 4.0;
+        vec3 B = vec3(0.26, 0.52, 0.96), Rd = vec3(0.92, 0.26, 0.21), Y = vec3(0.98, 0.74, 0.02), G = vec3(0.2, 0.66, 0.33);
+        vec3 four = h < 1.0 ? mix(B, Rd, h) : h < 2.0 ? mix(Rd, Y, h - 1.0) : h < 3.0 ? mix(Y, G, h - 2.0) : mix(G, B, h - 3.0);
+        for (int k = 0; k < 3; k++) {
+          float rt = uRipple - float(k) * 0.12;
+          if (rt < 0.0) continue;
+          float r = rt * 0.75;
+          float ring = exp(-abs(d - r) * 70.0) + exp(-max(r - d, 0.0) * 22.0) * step(d, r) * 0.12;
+          col += four * ring * max(0.0, 1.0 - rt / 1.1) * 0.55;
+        }
+      }
       gl_FragColor = vec4(col, 1.0);
     }`,
   depthWrite: false, depthTest: false,
@@ -147,7 +166,7 @@ const lineMat = new THREE.ShaderMaterial({
       float z = -mod(aSeed.z * L - uTravel, L) - 1.0;   // moves toward camera
       z += isEnd * uStreak;
       vec3 p = vec3(cos(aSeed.x) * aSeed.y * 0.5625, sin(aSeed.x) * aSeed.y, z);
-      vColor = hue < 0.4 ? vec3(0.45, 0.2, 1.0) : hue < 0.8 ? vec3(0.15, 0.55, 1.0) : vec3(1.0, 0.75, 0.3);
+      vColor = hue < 0.35 ? vec3(0.26, 0.52, 0.96) : hue < 0.6 ? vec3(0.61, 0.45, 0.8) : hue < 0.75 ? vec3(0.92, 0.26, 0.21) : hue < 0.9 ? vec3(0.98, 0.74, 0.02) : vec3(0.2, 0.66, 0.33);
       vA = smoothstep(-80.0, -40.0, z) * smoothstep(-0.5, -6.0, z) * (1.0 - isEnd * 0.85);
       gl_Position = projectionMatrix * vec4(p, 1.0);
     }`,
@@ -177,7 +196,7 @@ const frameMat = new THREE.ShaderMaterial({
 });
 for (let i = 0; i < FRAME_N; i++) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * 10 * TAN * ASPECT, 2 * 10 * TAN), frameMat.clone());
-  m.material.uniforms.uColor.value.copy([COL.violet, COL.blue, COL.gold][i % 3]);
+  m.material.uniforms.uColor.value.copy([COL.blue, COL.red, COL.yellow, COL.green][i % 4]);
   m.frustumCulled = false;
   camera.add(m);
   frames.push(m);
@@ -235,9 +254,13 @@ const sparkMat = new THREE.ShaderMaterial({
       float glow = exp(-max(ds - 1.0, 0.0) * 2.6) * 0.55;
       float flare = (0.0022 / (a.y + 0.0025)) * smoothstep(1.0, 0.0, a.x) + (0.0022 / (a.x + 0.0025)) * smoothstep(1.0, 0.0, a.y);
       float ang = atan(p.y, p.x + 1e-4);
-      vec3 blue = vec3(0.15, 0.5, 1.0), violet = vec3(0.55, 0.25, 1.0), gold = vec3(1.0, 0.75, 0.3);
-      vec3 grad = mix(blue, violet, 0.5 + 0.5 * sin(ang + uTime * 1.2));
-      grad = mix(grad, gold, smoothstep(0.35, 1.0, 0.5 + 0.5 * sin(ang * 2.0 - uTime * 1.7)));
+      vec2 q0 = (vUv - 0.5) * 2.0;   // colour field stays upright while the star rotates
+      vec3 blue = vec3(0.26, 0.52, 0.96), red = vec3(0.92, 0.26, 0.21), yellow = vec3(0.98, 0.74, 0.02), green = vec3(0.2, 0.66, 0.33);
+      vec3 grad = blue;
+      grad = mix(grad, red, smoothstep(0.05, 0.6, q0.y) * 0.85);
+      grad = mix(grad, yellow, smoothstep(0.05, 0.6, -q0.x) * smoothstep(0.4, -0.2, q0.y) * 0.8);
+      grad = mix(grad, green, smoothstep(0.05, 0.6, -q0.y) * 0.85);
+      grad = mix(grad, vec3(0.61, 0.45, 0.8), 0.15 + 0.1 * sin(ang + uTime * 1.2));
       float sheen = 0.72 + 0.28 * sin(p.x * 5.0 - p.y * 3.0 + uTime * 3.0);
       vec3 metal = vec3(0.92, 0.94, 1.0) * sheen + grad * 0.08;
       vec3 base = mix(grad, metal, uMetal);
@@ -256,7 +279,7 @@ scene.add(spark);
 const KW_W = 4.7, KW_CANVAS = [2048, 300];
 const KW_H = KW_W * KW_CANVAS[1] / KW_CANVAS[0];
 const KW_LAYERS = 7;
-const hueCols = { blue: [COL.cyan, COL.blue], violet: [COL.violet, COL.cyan], gold: [COL.gold, new THREE.Color(1, 0.3, 0.7)] };
+const hueCols = { blue: [COL.cyan, COL.blue], violet: [COL.blue, COL.violet], gold: [COL.violet, COL.pink] };
 const keywordObjs = [];
 function keywordCanvas(text) {
   const c = makeCanvas(...KW_CANVAS);
@@ -309,6 +332,79 @@ for (const kw of TL.KEYWORDS) {
   scene.add(group);
   keywordObjs.push({ kw, canvas: c, group, mats });
 }
+
+// ================================================================ 6b. Gemini-style prompt bar + four-colour thinking dots
+const BAR = { w: 4.0, h: 0.7, y: -3.45, z: 0.6 };
+const BAR_TEXT_W = 3.0;
+function barTextCanvas(text, color) {
+  const c = makeCanvas(1400, 160);
+  const g = c.getContext('2d');
+  g.font = `500 92px ${FONT}`; g.textBaseline = 'middle';
+  g.fillStyle = color; g.fillText(text, 0, 84);
+  return { tex: canvasTexture(c), frac: Math.min(1, g.measureText(text).width / c.width) };
+}
+const barPlaceholder = barTextCanvas('Gemini에게 물어보기', 'rgba(200,205,220,0.55)');
+const barTexts = TL.KEYWORDS.map((k) => barTextCanvas(k.text, '#f1f3f4'));
+const barMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uText: { value: barTexts[0].tex }, uPlace: { value: barPlaceholder.tex }, uReveal: { value: 0 }, uFrac: { value: 1 },
+    uTextOp: { value: 0 }, uPlaceOp: { value: 1 }, uTime: { value: 0 }, uOpacity: { value: 0 }, uActive: { value: 0 },
+    uThink: { value: 0 }, uSize: { value: new THREE.Vector2(BAR.w, BAR.h) }, uTextW: { value: BAR_TEXT_W },
+  },
+  vertexShader: fullVS,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D uText, uPlace; uniform float uReveal, uFrac, uTextOp, uPlaceOp, uTime, uOpacity, uActive, uThink, uTextW;
+    uniform vec2 uSize; varying vec2 vUv;
+    vec3 four(float h){ h = fract(h) * 4.0;
+      vec3 b = vec3(0.26,0.52,0.96), r = vec3(0.92,0.26,0.21), y = vec3(0.98,0.74,0.02), g = vec3(0.2,0.66,0.33);
+      return h < 1.0 ? mix(b, r, h) : h < 2.0 ? mix(r, y, h - 1.0) : h < 3.0 ? mix(y, g, h - 2.0) : mix(g, b, h - 3.0); }
+    void main(){
+      vec2 p = (vUv - 0.5) * uSize;
+      vec2 hs = uSize * 0.5 - 0.2;           // pill = plane minus a 0.2 glow margin
+      float rr = hs.y;
+      vec2 q = abs(p) - vec2(hs.x - rr, 0.0);
+      float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rr;
+      float inside = smoothstep(0.006, -0.006, sd);
+      // travelling gradient light: sharp leading edge, diffuse tail
+      float ang = atan(p.y * 3.0, p.x) / 6.28318 + 0.5;
+      float head = fract(ang - uTime * 0.45);
+      float beam = pow(head, 6.0) * (0.35 + 0.65 * uActive);
+      vec3 bcol = four(ang + uTime * 0.12);
+      float border = exp(-abs(sd) * 110.0) * (0.4 + beam * 2.6) + exp(-max(sd, 0.0) * 16.0) * step(0.0, sd) * beam * 0.6;
+      vec3 col = vec3(0.075, 0.08, 0.1) * inside;
+      float alpha = inside * 0.82;
+      // text (left aligned, revealed by typing) + caret
+      vec2 tuv = vec2((p.x + hs.x - 0.3) / uTextW, (p.y / (uTextW * 160.0 / 1400.0)) + 0.5);
+      float inT = step(0.0, tuv.x) * step(tuv.x, 1.0) * step(0.0, tuv.y) * step(tuv.y, 1.0);
+      vec4 tt = texture2D(uText, tuv) * inT;
+      vec4 pt = texture2D(uPlace, tuv) * inT;
+      float edge = uReveal * uFrac;
+      float typed = step(tuv.x, edge);
+      col = mix(col, tt.rgb, tt.a * typed * uTextOp);
+      col = mix(col, pt.rgb, pt.a * uPlaceOp);
+      float caret = step(abs(tuv.x - edge - 0.004), 0.0022) * step(0.2, tuv.y) * step(tuv.y, 0.8) * uTextOp * step(0.5, fract(uTime * 2.5) + uActive);
+      col += vec3(0.54, 0.7, 0.97) * caret;
+      // four-colour thinking dots in the send slot
+      vec2 dc = p - vec2(hs.x - 0.33, 0.0);
+      for (int k = 0; k < 4; k++) {
+        float a = float(k) * 1.5708 + uTime * 5.0 * uThink;
+        float rad = 0.075 + 0.035 * sin(uTime * 9.0 + float(k)) * uThink;
+        vec2 o = vec2(cos(a), sin(a)) * rad * (0.5 + 0.5 * uThink);
+        float dot1 = smoothstep(0.034, 0.024, length(dc - o));
+        vec3 dcol = mix(vec3(0.55), four(float(k) * 0.25), 0.35 + 0.65 * uThink);
+        col = mix(col, dcol * (1.0 + uThink * 0.6), dot1 * inside);
+      }
+      col += bcol * border;
+      alpha = max(alpha, clamp(border, 0.0, 1.0));
+      gl_FragColor = vec4(col, alpha * uOpacity);
+    }`,
+  transparent: true, depthWrite: false,
+});
+const promptBar = new THREE.Mesh(new THREE.PlaneGeometry(BAR.w + 0.4, BAR.h + 0.4), barMat);
+barMat.uniforms.uSize.value.set(BAR.w + 0.4, BAR.h + 0.4);
+promptBar.position.set(0, BAR.y, BAR.z);
+promptBar.renderOrder = 12;
+scene.add(promptBar);
 
 // ================================================================ 7. Main morphing particle system
 const PER_GROUP = 18000;
@@ -373,7 +469,7 @@ const pMat = new THREE.ShaderMaterial({
       float arc = sin(3.14159 * e1);
       vec3 n = vec3(snoise(aText * 1.4 + vec3(0.0, 0.0, uTime * 0.6)), snoise(aText * 1.4 + 17.0), snoise(aText * 1.4 + 31.0));
       p += n * arc * 1.3 + vec3(0.0, 0.0, arc * 2.2 * (aInfo.z - 0.25));
-      vec3 col = aColor + vec3(0.6) * arc;
+      vec3 col = aColor + vec3(0.3) * arc;
       float alpha = step(sh, uTime);
 
       // --- Scene 3 (drop): explode out of the screen, re-form as the flower ecosystem
@@ -400,7 +496,7 @@ const pMat = new THREE.ShaderMaterial({
 
       p *= 1.0 + uKick * 0.035;
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
-      float size = (0.7 + aInfo.z * 1.1) * (1.0 + arc * 1.0 + burst * 0.6 + uKick * 0.15);
+      float size = (0.7 + aInfo.z * 1.1) * (1.0 + arc * 0.6 + burst * 0.6 + uKick * 0.15);
       gl_PointSize = min(size * uSizeScale / max(0.3, -mv.z), uSizeScale * 0.9);
       vColor = col * (0.42 + uKick * 0.1) * mix(1.0, 0.3, e2 * (1.0 - e3)) * (1.0 - burst * 0.5);
       vAlpha = alpha * smoothstep(1.0, 4.5, -mv.z);
@@ -464,14 +560,14 @@ function codeCanvas() {
     let x = 30 + ind;
     const roll = r();
     const parts = roll < 0.15
-      ? [['#ffcf6b', Array.from({ length: 8 }, () => (Math.floor(r() * 65535)).toString(16).padStart(4, '0')).join(' ')]]
+      ? [['#fdd663', Array.from({ length: 8 }, () => (Math.floor(r() * 65535)).toString(16).padStart(4, '0')).join(' ')]]
       : roll < 0.25
         ? [['#5a6aa8', `// ${ids[Math.floor(r() * ids.length)]} → ${Math.floor(r() * 4096)} dims`]]
         : [
-          ['#b18cff', kw[Math.floor(r() * kw.length)] + ' '],
-          ['#7fd4ff', ids[Math.floor(r() * ids.length)] + '.' + ids[Math.floor(r() * ids.length)]],
+          ['#c58af9', kw[Math.floor(r() * kw.length)] + ' '],
+          ['#8ab4f8', ids[Math.floor(r() * ids.length)] + '.' + ids[Math.floor(r() * ids.length)]],
           ['#e8ecff', '('],
-          ['#ffcf6b', `"${['multimodal', 'imagine', '∞', 'ultra-hd', 'simulate', 'orbit'][Math.floor(r() * 6)]}"`],
+          ['#81c995', `"${['multimodal', 'imagine', '∞', 'ultra-hd', 'simulate', 'orbit'][Math.floor(r() * 6)]}"`],
           ['#e8ecff', `, ${(r() * 10).toFixed(3)});`],
         ];
     for (const [color, s] of parts) { g.fillStyle = color; g.fillText(s, x, y); x += g.measureText(s).width; }
@@ -510,7 +606,7 @@ const panelMat = new THREE.ShaderMaterial({
 const panels = [
   { w: 6.0, h: 10.6, pos: [0, 0, -6], ry: -0.18, scroll: 0.08, tint: COL.violet },
   { w: 2.5, h: 3.4, pos: [-1.65, 3.0, -2.6], ry: 0.42, scroll: 0.22, tint: COL.blue },
-  { w: 2.5, h: 3.4, pos: [1.7, -3.1, -2.2], ry: -0.45, scroll: -0.15, tint: COL.gold },
+  { w: 2.5, h: 3.4, pos: [1.7, -3.1, -2.2], ry: -0.45, scroll: -0.15, tint: COL.green },
 ].map((cfg) => {
   const m = panelMat.clone();
   m.uniforms.uSize.value.set(cfg.w, cfg.h);
@@ -557,7 +653,7 @@ const oMat = new THREE.ShaderMaterial({
       p.z += 0.6;
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
       gl_PointSize = min((1.6 - u) * (1.0 + aSeed.w) * uSizeScale / max(0.3, -mv.z) * (1.0 + uKick * 0.3), uSizeScale * 0.45);
-      vec3 c = mod(ring, 3.0) < 1.0 ? vec3(1.0, 0.75, 0.3) : mod(ring, 3.0) < 2.0 ? vec3(0.25, 0.6, 1.0) : vec3(0.6, 0.3, 1.0);
+      float rc = mod(ring, 4.0); vec3 c = rc < 1.0 ? vec3(0.26, 0.52, 0.96) : rc < 2.0 ? vec3(0.92, 0.26, 0.21) : rc < 3.0 ? vec3(0.98, 0.74, 0.02) : vec3(0.2, 0.66, 0.33);
       vColor = mix(vec3(1.0), c, smoothstep(0.0, 0.15, u)) * (1.4 - u) * 0.16;
       vAlpha = uOpacity * pow(1.0 - u, 1.5) * smoothstep(1.5, 5.0, -mv.z);
       gl_Position = projectionMatrix * mv;
@@ -615,8 +711,10 @@ function taglineCanvas() {
   const g = c.getContext('2d');
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.font = `500 58px ${FONT}`;
-  g.shadowColor = 'rgba(120,90,255,0.9)'; g.shadowBlur = 24;
-  g.fillStyle = '#f2f0ff';
+  g.shadowColor = 'rgba(66,133,244,0.7)'; g.shadowBlur = 22;
+  const tg = g.createLinearGradient(170, 0, 830, 0);
+  tg.addColorStop(0, '#8ab4f8'); tg.addColorStop(0.5, '#c58af9'); tg.addColorStop(1, '#f28b82');
+  g.fillStyle = tg;
   g.fillText('당신의 상상, 그 이상의 속도로.', 500, 58);
   return c;
 }
@@ -627,7 +725,7 @@ function ctaCanvas() {
   const path = () => { g.beginPath(); g.roundRect(x, y, w, h, r); };
   g.shadowColor = 'rgba(90,120,255,0.95)'; g.shadowBlur = 40;
   const grad = g.createLinearGradient(x, 0, x + w, 0);
-  grad.addColorStop(0, '#6a2bff'); grad.addColorStop(0.55, '#1f6bff'); grad.addColorStop(1, '#ffb43c');
+  grad.addColorStop(0, '#4285f4'); grad.addColorStop(0.55, '#9b72cb'); grad.addColorStop(1, '#d96570');
   path(); g.fillStyle = grad; g.fill();
   g.shadowBlur = 0;
   const gl = g.createLinearGradient(0, y, 0, y + h);
@@ -670,7 +768,7 @@ function renderAt(t) {
   // ---- camera
   let camZ = 10, camY = 0, roll = 0;
   if (t < T.burst) {
-    camZ = lerp(10, 9.4, ease(prog(t, 0, T.zoomStart))) ;
+    camZ = lerp(10, 9.4, ease(prog(t, 0, 1.05))) + 0.9 * easeInOut(prog(t, 1.05, T.zoomStart)); // anticipation pull-back
     camZ = lerp(camZ, 0.32, easeIn(prog(t, T.zoomStart, T.burst)));
     camY = Math.sin(t * 1.3) * 0.04 * (1 - prog(t, T.zoomStart, T.burst));
   } else if (t < T.drop) {
@@ -698,6 +796,7 @@ function renderAt(t) {
   bu.uTime.value = t;
   bu.uSplit.value = t < T.burst ? 0 : lerp(0, 1.35, ease(prog(t, T.burst, T.burst + 0.75)));
   bu.uRim.value = t < T.burst ? 0 : 1 - prog(t, T.burst + 0.4, T.burst + 0.9);
+  bu.uRipple.value = t < T.burst ? -1 : t - T.burst;
   let inten = 0;
   if (t >= T.burst) inten = lerp(1.1, 0.32, ease(prog(t, T.burst, 3.8)));
   if (t >= 3.8) inten = 0.32 + kick * 0.12;
@@ -755,26 +854,58 @@ function renderAt(t) {
     spark.scale.setScalar(lerp(0.6, 1.55, k));
     su.uRot.value = lerp((T.logo - 7.6) * 1.8, Math.ceil(((T.logo - 7.6) * 1.8) / (Math.PI / 2)) * (Math.PI / 2), ease(prog(t, T.logo, T.logo + 1.2)));
     su.uOpacity.value = lerp(0.35, 0.8, ease(prog(t, T.logo + 0.2, T.logo + 0.9)));
-    su.uMetal.value = lerp(0.5, 1, k); su.uFlare.value = lerp(0.6, 0.25, k); su.uCore.value = 0.4;
+    su.uMetal.value = lerp(0.2, 0.35, k); su.uFlare.value = lerp(0.6, 0.25, k); su.uCore.value = 0.4;
   }
 
   // ---- keywords
   for (const o of keywordObjs) {
     const { kw, group, mats } = o;
-    const enter = ease(prog(t, kw.appear, kw.appear + 0.6));
-    const visible = t >= kw.appear && t < kw.shatter + 0.15;
+    const lift = kw.appear + 0.3;
+    const enter = ease(prog(t, lift, lift + 0.4));
+    const visible = t >= lift && t < kw.shatter + 0.15;
     group.visible = visible;
     if (!visible) continue;
-    group.position.set(0, lerp(kw.y - 3.2, kw.y, enter), lerp(-3, 0, enter));
-    group.rotation.set(lerp(1.1, 0, enter), lerp(-0.4, 0, enter), 0);
+    group.position.set(0, lerp(BAR.y, kw.y, enter), lerp(BAR.z, 0, enter) + Math.sin(enter * Math.PI) * 1.2);
+    group.rotation.set(lerp(-0.9, 0, enter), 0, 0);
     const pre = prog(t, kw.shatter - 0.12, kw.shatter);
-    group.scale.setScalar(1 + pre * 0.06 + snare * 0.03);
+    group.scale.setScalar(lerp(0.45, 1, enter) * (1 + pre * 0.06 + snare * 0.03));
     const op = enter * (1 - prog(t, kw.shatter, kw.shatter + 0.12));
-    const reveal = prog(t, kw.appear + 0.1, kw.appear + 0.55);
+    const reveal = prog(t, lift, lift + 0.15);
     for (const m of mats) {
       m.uniforms.uOpacity.value = op * (1 + pre * 0.8);
       m.uniforms.uReveal.value = reveal;
       m.uniforms.uTime.value = t;
+    }
+  }
+
+  // ---- prompt bar
+  {
+    const bu2 = barMat.uniforms;
+    const inK = ease(prog(t, T.burst + 0.05, 3.2)), outK = ease(prog(t, 6.75, T.drop));
+    promptBar.visible = t > T.burst && t < T.drop + 0.05;
+    promptBar.position.y = lerp(BAR.y - 1.2, BAR.y, inK) - outK * 0.4;
+    promptBar.scale.setScalar(lerp(0.85, 1, inK) * (1 + outK * 0.15));
+    bu2.uOpacity.value = inK * (1 - outK);
+    bu2.uTime.value = t;
+    let typing = null;
+    for (let i = 0; i < TL.KEYWORDS.length; i++) {
+      const k = TL.KEYWORDS[i];
+      if (t >= k.appear && t < k.appear + 0.42) typing = i;
+    }
+    const think = TL.KEYWORDS.some((k) => t >= k.appear + 0.3 && t < k.shatter + 0.25);
+    bu2.uThink.value = lerp(bu2.uThink.value, think ? 1 : 0, RENDER_MODE ? 1 : 0.25);
+    if (RENDER_MODE) bu2.uThink.value = think ? 1 : 0;
+    bu2.uActive.value = typing !== null || think ? 1 : 0.2;
+    if (typing !== null) {
+      const k = TL.KEYWORDS[typing];
+      bu2.uText.value = barTexts[typing].tex;
+      bu2.uFrac.value = barTexts[typing].frac;
+      bu2.uReveal.value = prog(t, k.appear, k.appear + 0.26);
+      bu2.uTextOp.value = 1 - prog(t, k.appear + 0.3, k.appear + 0.42);
+      bu2.uPlaceOp.value = 0;
+    } else {
+      bu2.uTextOp.value = 0;
+      bu2.uPlaceOp.value = 1;
     }
   }
 
@@ -939,4 +1070,4 @@ if (!RENDER_MODE) {
 }
 
 // debug handle (used by scripts to isolate layers)
-window.__objs = { bg, lines, frames, dust, spark, particles, dataStream, panels, orbits, bloom, finalPass, keywordObjs };
+window.__objs = { promptBar, bg, lines, frames, dust, spark, particles, dataStream, panels, orbits, bloom, finalPass, keywordObjs };

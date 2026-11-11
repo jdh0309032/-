@@ -1,12 +1,14 @@
 // Particle target shapes. All generated once at startup into typed arrays
 // (seeded → identical every render). Coordinates are LOCAL to each shape's center.
 
-const PAL = {
-  violet: [0.42, 0.12, 1.0],
-  blue: [0.08, 0.42, 1.0],
-  cyan: [0.2, 0.85, 1.0],
-  gold: [1.0, 0.7, 0.18],
-  pink: [1.0, 0.25, 0.75],
+const PAL = { // Google four colours + Gemini gradient (blue → purple → pink)
+  violet: [0.61, 0.45, 0.8],
+  blue: [0.26, 0.52, 0.96],
+  cyan: [0.54, 0.71, 0.97],
+  gold: [0.98, 0.74, 0.02],
+  pink: [0.85, 0.4, 0.44],
+  red: [0.92, 0.26, 0.21],
+  green: [0.2, 0.66, 0.33],
   white: [1.0, 1.0, 1.0],
 };
 const mix = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
@@ -64,7 +66,7 @@ export function city(n, rnd, pos, col, off) {
       put(pos, col, i, p, rnd() < 0.75 ? PAL.gold : PAL.cyan);
     } else { // antenna beams on tallest towers
       const y = base + t.h + rnd() * 0.35 * (t.h > 1.2 ? 1 : 0.2);
-      put(pos, col, i, [t.x, y, t.z], PAL.pink);
+      put(pos, col, i, [t.x, y, t.z], PAL.red);
     }
   }
 }
@@ -107,7 +109,7 @@ export function planet(n, rnd, pos, col, off) {
 // --- Scene 2c: torus-knot "artwork" sculpture ---------------------------------------
 export function art(n, rnd, pos, col, off) {
   const P = 2, Q = 3;
-  const grad = [PAL.violet, PAL.blue, PAL.cyan, PAL.gold, PAL.pink, PAL.violet];
+  const grad = [PAL.blue, PAL.violet, PAL.pink, PAL.red, PAL.gold, PAL.green, PAL.blue];
   for (let k = 0; k < n; k++) {
     const i = off + k;
     const t = rnd() * Math.PI * 2;
@@ -140,7 +142,7 @@ export function flower(n, rnd, pos, col, off) {
   const layers = [
     { petals: 10, L: 2.15, cup: 0.9, phase: 0.0, a: PAL.violet, b: PAL.blue },
     { petals: 8, L: 1.65, cup: 1.1, phase: 0.3, a: PAL.blue, b: PAL.cyan },
-    { petals: 7, L: 1.15, cup: 1.25, phase: 0.6, a: PAL.pink, b: PAL.violet },
+    { petals: 7, L: 1.15, cup: 1.25, phase: 0.6, a: PAL.pink, b: PAL.red },
     { petals: 6, L: 0.7, cup: 1.4, phase: 0.1, a: PAL.gold, b: PAL.white },
   ];
   for (let k = 0; k < n; k++) {
@@ -173,7 +175,7 @@ export function flower(n, rnd, pos, col, off) {
       const r = 0.6 + h * 1.2 + Math.sin(h * 20 + vine) * 0.08;
       const leaf = rnd() < 0.25 ? (rnd() - 0.5) * 0.25 : 0;
       put(pos, col, i, [Math.cos(th) * r + leaf, y + leaf, Math.sin(th) * r * 0.6 - 0.5],
-        mix(vine % 3 === 0 ? PAL.cyan : PAL.violet, PAL.gold, h * 0.7));
+        mix(vine % 2 === 0 ? PAL.green : PAL.blue, PAL.gold, h * 0.6));
     } else { // floating spores filling the frame
       put(pos, col, i, [(rnd() - 0.5) * 5.6, (rnd() - 0.5) * 9.6, (rnd() - 0.5) * 3 - 0.5],
         mix(PAL.gold, PAL.cyan, rnd()).map((q) => q * 0.8));
