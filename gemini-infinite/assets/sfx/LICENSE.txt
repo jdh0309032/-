@@ -1,0 +1,2 @@
+All sound effects in this folder are CC0 1.0 (public domain dedication).
+Sources: Kenney audio packs (kenney.nl) and CC0 uploads on freesound.org (fs-<id> = freesound sound id).

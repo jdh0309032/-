@@ -9,7 +9,7 @@ import * as TL from '../src/timeline.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'out');
-const SFX = path.resolve(ROOT, '../.claude/skills/sound-effects/sfx');
+const SFX = path.join(ROOT, 'assets/sfx'); // CC0 sound effects bundled with the project
 fs.mkdirSync(OUT, { recursive: true });
 
 const SR = 48000;
