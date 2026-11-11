@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-animation-skills": {
+      "source": {
+        "source": "github",
+        "repo": "artemnovitckii/claude-animation-skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "animation-skills@claude-animation-skills": true
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Claude Code Cloud Environment",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {}
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y ffmpeg && npm install -g @anthropic-ai/claude-code && npx -y skills experimental_install -a claude-code -y"
+}

@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "skills": {
+    "explainer-default": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-default/SKILL.md",
+      "computedHash": "7eb04a04dde98d7e4f8ec6153588671c680ad7f999f25d21ed4f1f1ecee93da8"
+    },
+    "explainer-engaging": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-engaging/SKILL.md",
+      "computedHash": "77b0d09eb4d9d2bcf50d785ce09577d11092fd09fd2d75ba559cc5673c9f7217"
+    },
+    "explainer-high-energy": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/explainer-high-energy/SKILL.md",
+      "computedHash": "afa0cd2851ba07261f9a08622efd132634f4ddcf2922c1d4db6dc1cacc8ae3f4"
+    },
+    "hyperframes": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/hyperframes/SKILL.md",
+      "computedHash": "efecc3d588e38d0ea2323f0860e431b6b1795dc2f9994ad795a0b0f86e397954"
+    },
+    "hyperframes-cli": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/hyperframes-cli/SKILL.md",
+      "computedHash": "584ef84e0752183ec654ac80f6c43a7505455b3e1380970b120e82b2f252e000"
+    },
+    "hyperframes-registry": {
+      "source": "heygen-com/hyperframes",
+      "sourceType": "github",
+      "skillPath": "skills/hyperframes-registry/SKILL.md",
+      "computedHash": "6ac664d7d7f2ffdf299136cffb1a9bbebe21fd2b9afa8e6f44cf0c7a2d3df3b6"
+    },
+    "motion-broll": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/motion-broll/SKILL.md",
+      "computedHash": "ddb1adb127644a843943cd9e0af0f9bbe808653024d98a717a43103f74c28788"
+    },
+    "object-separation": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/object-separation/SKILL.md",
+      "computedHash": "8e0ceb86b61c1d416d4ef2619dc6ef33de862bb641d2cd43d3d23b30fa56602f"
+    },
+    "sound-effects": {
+      "source": "Barty-Bart/motion-graphics",
+      "sourceType": "github",
+      "skillPath": "skills/sound-effects/SKILL.md",
+      "computedHash": "4be0b3d6d09b0d1d60edc4110e9dd845db42f4bcf8b65b21028d0f5a087ba9c7"
+    }
+  }
+}
